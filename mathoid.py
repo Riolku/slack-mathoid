@@ -77,9 +77,7 @@ def index():
         }
       }]
     })
-    
-  print(res)
-      
+          
   return flask.Response(res, mimetype = "application/json")
 
 @app.route("/i/<path:inp>")
