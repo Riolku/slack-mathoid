@@ -7,42 +7,10 @@ from base64 import b64encode, b64decode
 from threading import Lock
 import time
 
-from io import BytesIO
+auth_url = 'https://slack.com/oauth/v2/authorize'
+client_id, client_secret = open("../oauth.txt", "r").read().splitlines()
 
 app = flask.Flask(__name__)
-
-lock = Lock()
-
-cache = {}
-
-def poke_cache(inp, img):
-  with lock:
-    todel = []
-    
-    for k, v in cache.items():
-      # Cache timeout of 1 minute
-      if time.time() - v['time'] > 60:
-        todel.append(k)
-        
-    for k in todel: del cache[k]
-    
-    cache[inp] = dict(img = img, time = time.time())
-
-def peek_cache(inp):
-  with lock:
-    if inp not in cache:
-      return None
-    
-    return cache[inp]['img']
-
-def latexify(texstr):
-  # Mathoid server
-  r = requests.post("http://localhost:10044/png", data = dict(q = texstr))
-  
-  if r.status_code == 400:
-    raise Exception(r.json()['error'])
-    
-  return r.content
   
 @app.route("/", methods = ["POST"])
 def index():
@@ -64,8 +32,16 @@ def index():
     })
     
     poke_cache(inp, img)
-    
-  except Exception as e:
+        
+    r = requests.post(form['response_url'], json = dict(
+      text = 'Psst! I can do much more than just replying to your message.' + \
+        ' If you give me permission, I can instead reply as you, making the chat much cleaner.' + \
+        ' If this interests you, click ' + \
+        '<{aurl}?client_id={cid}&user_scope={scopes}|here> to give me permission.'.format(aurl = auth_url, cid = client_id, scopes = scopes),
+      mrkdwn = "true"
+    ))
+        
+  except RuntimeError as e:
     res = flask.json.dumps({
       "text" : "Your latex couldn't be parsed.",
       "response_type" : "ephemeral",
@@ -100,4 +76,4 @@ def serve_image(inp):
   return flask.Response(img, mimetype = "image/png")
 
 if __name__ == "__main__":
-    app.run(port = 9000)
+    app.run(port = 4000)
