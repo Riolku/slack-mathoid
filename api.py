@@ -28,6 +28,9 @@ def get_psst_json():
     response_type = "ephemeral"
   )
 
+def authorize_user(code):
+  return requests.post(auth_url, json = dict(client_id = client_id, client_secret = client_secret, code = code))
+
 def get_success_json(inp):
   return {
     "text" : inp,

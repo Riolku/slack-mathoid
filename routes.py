@@ -1,6 +1,6 @@
-from utils import LockedDict, LockedCache, LockedJSON, latexify
+from utils import LockedCache, LockedJSON, latexify
 
-from api import get_error_json, get_psst_json, get_success_json, make_json_resp
+from api import get_error_json, get_psst_json, get_success_json, make_json_resp, authorize_user
 
 from app import app
 
@@ -11,6 +11,8 @@ from base64 import b64decode
 import requests
 
 cache = LockedCache()
+
+users = LockedJSON("../users.json")
 
 @app.route("/", methods = ["POST"])
 def index():
@@ -49,3 +51,29 @@ def serve_image(inp):
     cache[inp] = img
     
   return Response(img, mimetype = "image/png")
+  
+@app.route("/authorize")
+def authorize_user():
+  code = request.args.get("code")
+  
+  if code is None:
+    abort(400)
+    
+  r = authorize_user(code)
+  
+  if not r.ok:
+    abort(400)
+    
+  return r.json()
+  
+@app.route("/nopsst")
+def serve_nopsst():
+  token = requests.args.get("token")
+  
+  if token is None: abort(400)
+  
+  uid = get_uid(token)
+  
+  
+  
+  
