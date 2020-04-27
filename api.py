@@ -1,9 +1,14 @@
-import flask
+import flask, requests
 from base64 import b64encode, b64decode
+
+from utils import BearerAuth
 
 auth_url = 'https://slack.com/oauth/v2/authorize'
 scopes = "chat:write"
 client_id, client_secret = open("../oauth.txt", "r").read().splitlines()
+access_url = "https://slack.com/api/oauth.v2.access"
+
+postMessageURL = "https://slack.com/api/chat.postMessage"
 
 def get_error_json(error):
   return {
@@ -17,6 +22,7 @@ def get_error_json(error):
       }
     }]
   }
+     
 
 def get_psst_json():
   return dict(
@@ -28,8 +34,11 @@ def get_psst_json():
     response_type = "ephemeral"
   )
 
-def authorize_user(code):
-  return requests.post(auth_url, json = dict(client_id = client_id, client_secret = client_secret, code = code))
+def internal_error_json(error):
+  return {
+    "text" : "An internal error has occurred. The error we got was '%s'" % error,
+    "response_type" : "ephemeral"
+  }
 
 def get_success_json(inp):
   return {
@@ -41,6 +50,17 @@ def get_success_json(inp):
       "alt_text": inp
     }]
   }
+
+def user_success_message(token, channel, inp):
+  json = get_success_json(inp)
+  
+  json['channel'] = channel
+  json['as_user'] = True
+    
+  return requests.post(postMessageURL, json = json, auth = BearerAuth(token))
+  
+def authorize_user(code):
+  return requests.post(access_url, auth = (client_id, client_secret), data = dict(code = code))
 
 def make_json_resp(json):
   return flask.Response(flask.json.dumps(json), mimetype = "application/json")

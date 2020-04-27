@@ -1,6 +1,6 @@
 from utils import LockedCache, LockedJSON, latexify
 
-from api import get_error_json, get_psst_json, get_success_json, make_json_resp, authorize_user
+from api import get_error_json, get_psst_json, get_success_json, make_json_resp, authorize_user, user_success_message, internal_error_json
 
 from app import app
 
@@ -27,9 +27,19 @@ def index():
   
   cache[inp] = img
   
-  r = requests.post(form['response_url'], json = get_success_json(inp))
+  user = users[form['user_id']]
+  channel = form['channel_id']
+  
+  if user is not None and user['type'] == 'authed':
+    r = user_success_message(user['token'], channel, inp)
+  else:
+    r = requests.post(form['response_url'], json = get_success_json(inp))
     
-  assert r.ok
+  if not r.ok:
+    return make_json_resp(internal_error_json('error code %d' % r.status_code))
+    
+  if user is not None:
+    return ""
   
   return make_json_resp(get_psst_json())
 
@@ -53,7 +63,7 @@ def serve_image(inp):
   return Response(img, mimetype = "image/png")
   
 @app.route("/authorize")
-def authorize_user():
+def serve_authorize_user():
   code = request.args.get("code")
   
   if code is None:
@@ -64,7 +74,16 @@ def authorize_user():
   if not r.ok:
     abort(400)
     
-  return r.json()
+  if not r.json()['ok']:
+    return "An internal error has occurred while trying to authenticate you. " + \
+      "We received the error '%s' from slack. " % r.json()['error'] + \
+      "Please try to authenticate again. "
+    
+  authed_user = r.json()['authed_user']
+    
+  users[authed_user['id']] = dict(type = "authed", token = authed_user['access_token'])
+    
+  return "You have authorized this app to post on your behalf! You can close this tab and go back to slack now."
   
 @app.route("/nopsst")
 def serve_nopsst():

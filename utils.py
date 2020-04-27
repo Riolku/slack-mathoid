@@ -6,6 +6,14 @@ from threading import Lock
 
 from time import time as now
 
+class BearerAuth:
+  def __init__(self, token):
+    self.token = token
+    
+  def __call__(self, r):
+    r.headers['Authorization'] = "Bearer " + self.token
+    return r
+
 class LockedDict:
   def __init__(self, val = {}):
     self.val = val
@@ -49,7 +57,7 @@ class LockedJSON(LockedDict):
     with self.lock:
       self.val[key] = v
       
-      with open(filename, "w") as f:
+      with open(self.filename, "w") as f:
         f.write(json.dumps(self.val))
         
   def __delitem__(self, key):
