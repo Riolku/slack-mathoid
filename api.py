@@ -7,6 +7,7 @@ auth_url = 'https://slack.com/oauth/v2/authorize'
 scopes = "chat:write"
 client_id, client_secret = open("../oauth.txt", "r").read().splitlines()
 access_url = "https://slack.com/api/oauth.v2.access"
+revoke_url = "https://slack.com/api/auth.revoke"
 
 postMessageURL = "https://slack.com/api/chat.postMessage"
 
@@ -22,14 +23,19 @@ def get_error_json(error):
       }
     }]
   }
-     
+   
+def get_authorize_url():
+  return "{aurl}?client_id={cid}&user_scope={scopes}".format(aurl = auth_url, cid = client_id, scopes = scopes)
 
 def get_psst_json():
   return dict(
     text = 'Psst! I can do much more than just replying to your message.' + \
       ' If you give me permission, I can instead reply as you, making the chat much cleaner.' + \
       ' If this interests you, click ' + \
-      '<{aurl}?client_id={cid}&user_scope={scopes}|here> to give me permission.'.format(aurl = auth_url, cid = client_id, scopes = scopes),
+      '<{aurl}|here> to give me permission.'.format(aurl = get_authorize_url(), cid = client_id, scopes = scopes) + \
+      " On the other hand, if you don't want me to mention this again," + \
+      " run '/mathconf nopsst' and I will stop nudging you."
+    ,
     mrkdwn = "true",
     response_type = "ephemeral"
   )
@@ -61,6 +67,9 @@ def user_success_message(token, channel, inp):
   
 def authorize_user(code):
   return requests.post(access_url, auth = (client_id, client_secret), data = dict(code = code))
+
+def revoke_token(token):
+  return requests.post(revoke_url, auth = BearerAuth(token))
 
 def make_json_resp(json):
   return flask.Response(flask.json.dumps(json), mimetype = "application/json")

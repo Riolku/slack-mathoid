@@ -1,5 +1,7 @@
 import requests
 
+from base64 import b64encode
+
 from flask import json
 
 from threading import Lock
@@ -26,6 +28,10 @@ class LockedDict:
   def __setitem__(self, key, v):
     with self.lock:
       self.val[key] = v
+      
+  def __delitem__(self, key):
+    with self.lock:
+      del self.val[key]
       
 CACHE_TIMEOUT = 60 # 1 minute
 
@@ -63,6 +69,9 @@ class LockedJSON(LockedDict):
   def __delitem__(self, key):
     with self.lock:
       del self.val[key]
+      
+      with open(self.filename, "w") as f:
+        f.write(json.dumps(self.val))
         
 def latexify(texstr):
   # Mathoid server
@@ -72,3 +81,7 @@ def latexify(texstr):
     raise RuntimeError(r.json()['error'])
     
   return r.content
+
+img_cache = LockedCache()
+
+users = LockedJSON("../users.json")

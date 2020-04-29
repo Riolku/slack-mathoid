@@ -1,0 +1,15 @@
+```
+Usage: /mathconf <help|nopsst|revoke|authorize>
+
+  help:
+    Displays this help information.
+    
+  nopsst:
+    No longer displays a nudge when you post on an un-authenticated account.
+    
+  revoke:
+    Revokes and removes the authentication we have for your account.
+    
+  authorize:
+    Provides a link with which you can authorize our app to post on your behalf. NOTE: this is not required to use the app, but it is reccomended. 
+```

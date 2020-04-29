@@ -1,6 +1,9 @@
-from utils import LockedCache, LockedJSON, latexify
+from utils import LockedCache, LockedJSON, latexify, img_cache, users
 
-from api import get_error_json, get_psst_json, get_success_json, make_json_resp, authorize_user, user_success_message, internal_error_json
+from api import get_error_json, get_psst_json, \
+  get_success_json, make_json_resp, authorize_user,   \
+  user_success_message, internal_error_json,  \
+  revoke_token, get_authorize_url
 
 from app import app
 
@@ -9,10 +12,6 @@ from flask import request, Response, abort
 from base64 import b64decode
 
 import requests
-
-cache = LockedCache()
-
-users = LockedJSON("../users.json")
 
 @app.route("/", methods = ["POST"])
 def index():
@@ -25,7 +24,7 @@ def index():
   except RuntimeError as e:
     return make_json_resp(get_error_json(e.args[0]))
   
-  cache[inp] = img
+  img_cache[inp] = img
   
   user = users[form['user_id']]
   channel = form['channel_id']
@@ -50,7 +49,7 @@ def serve_image(inp):
   except:
     abort(400)
     
-  img = cache[inp]
+  img = img_cache[inp]
   
   if img is None:
     try:
@@ -58,7 +57,7 @@ def serve_image(inp):
     except RuntimeError as e:
       abort(400)
       
-    cache[inp] = img
+    img_cache[inp] = img
     
   return Response(img, mimetype = "image/png")
   
@@ -85,14 +84,51 @@ def serve_authorize_user():
     
   return "You have authorized this app to post on your behalf! You can close this tab and go back to slack now."
   
-@app.route("/nopsst")
-def serve_nopsst():
-  token = requests.args.get("token")
+helpjson = dict(response_type = "ephemeral", text = open("help.txt").read(), mrkdwn = True)
   
-  if token is None: abort(400)
+@app.route("/mathconf", methods = ["POST"])
+def serve_mathconf():
   
-  uid = get_uid(token)
+  form = request.form
   
+  inp = form['text'].strip().lower()
+  uid = form['user_id']
   
+  if inp == "help":
+    return helpjson
   
+  elif inp == "nopsst":
+    user = users[uid]
+    
+    if user is None:
+      users[uid] = dict(type = "nopsst")
+      
+      return dict(response_type = "ephemeral", text = "Success!")
+    
+    return dict(response_type = "ephemeral", text = "Already not nudging you!")
+      
+  elif inp == "revoke":
+    user = users[uid]
+    
+    if user is None or user['type'] != 'authed':
+      return dict(response_type = "ephemeral", text = "No auth token to revoke for this account!")
+    
+    r = revoke_token(user['token'])
+    
+    if not r.ok or not r.json()['ok']:
+      return internal_error_json(r.json()['error'])
+    
+    del users[uid]
+    
+    return dict(response_type = "ephemeral", text = "Auth token removed successfully!")
   
+  elif inp == "authorize":
+    user = users[uid]
+    
+    if user is not None and user['type'] == 'authed':
+      return dict(response_type = "ephemeral", text = "Already authed!")
+    
+    return dict(response_type = "ephemeral", text = "Use <%s|this link> to authenticate." % get_authorize_url(), mrkdwn = True)
+  
+  else:
+    return dict(response_type = "ephemeral", text = "Invalid command! Please run '/mathconf help'.")
